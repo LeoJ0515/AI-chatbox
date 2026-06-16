@@ -2,7 +2,7 @@
 
 A fully functional, real‑time AI chatbot with a stunning **Matrix‑inspired interface**. Built with **FastAPI**, **Groq** (Llama 3.3 70B), **Supabase** for persistent memory, and a modern frontend featuring typing animations, Markdown rendering, file uploads, and session management.
 
-![Matrix UI Screenshot](https://via.placeholder.com/800x450/0a0f0a/00ff41?text=MATRIX+AI+Interface)
+<img width="2880" height="1374" alt="Screenshot 2026-06-16 180304" src="https://github.com/user-attachments/assets/1c61324e-689d-495c-b07f-a8d05697eb9f" />
 
 ---
 
