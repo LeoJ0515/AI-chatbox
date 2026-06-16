@@ -23,14 +23,14 @@ A fully functional, real‑time AI chatbot with a stunning **Matrix‑inspired i
 
 ## 🛠️ Tech Stack
 
-| Layer       | Technology                          |
-|-------------|-------------------------------------|
-| **Backend** | Python, FastAPI, Uvicorn            |
-| **AI Model**| Groq API (Llama 3.3 70B)            |
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Python, FastAPI, Uvicorn |
+| **AI Model**| Groq API (Llama 3.3 70B) |
 | **Database**| Supabase (PostgreSQL, session memory)|
-| **Frontend**| HTML5, CSS3, JavaScript (vanilla)   |
+| **Frontend**| HTML5, CSS3, JavaScript (vanilla) |
 | **Libraries**| `groq`, `supabase`, `PyPDF2`, `python-docx`, `openpyxl`, `google-genai` (optional for image descriptions) |
-| **Markdown**| `marked.js`, `highlight.js` (CDN)   |
+| **Markdown**| `marked.js`, `highlight.js` (CDN) |
 
 ---
 
