@@ -36,11 +36,17 @@ A fully functional, real‑time AI chatbot with a stunning **Matrix‑inspired i
 
 ## 📁 Project Structure
 AI-chatbox/
+
 ├── main.py # FastAPI backend
+
 ├── index.html # Frontend (Matrix UI)
+
 ├── .env.example # Environment variables template
+
 ├── .gitignore # Ignore secrets & venv
+
 ├── requirements.txt # Python dependencies
+
 └── README.md
 
 
