@@ -2,6 +2,8 @@ import os
 import json
 import base64
 import io
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,6 +11,7 @@ from groq import Groq
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
+
 
 # New imports for document parsing
 import PyPDF2
@@ -213,6 +216,11 @@ async def chat(req: ChatRequest):
 async def clear_history(session_id: str):
     supabase.table("conversations").delete().eq("session_id", session_id).execute()
     return {"message": "History cleared"}
+
+# Serve the frontend at the root URL
+@app.get("/")
+async def root():
+    return FileResponse("index.html")
 
 if __name__ == "__main__":
     import uvicorn
