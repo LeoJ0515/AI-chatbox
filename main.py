@@ -2,18 +2,15 @@ import os
 import json
 import base64
 import io
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from groq import Groq
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
 
-
-# New imports for document parsing
 import PyPDF2
 from docx import Document
 from openpyxl import load_workbook
@@ -21,12 +18,13 @@ from openpyxl import load_workbook
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")        # service_role key (kept secret)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, GROQ_API_KEY]):
     raise RuntimeError("Missing required environment variables in .env")
 
+# Supabase client (admin access – service_role)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -47,6 +45,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ──────────────────────────────────────────────
+# AUTHENTICATION HELPER
+# ──────────────────────────────────────────────
+async def get_current_user(authorization: str = Header(None)):
+    """Verifies the Supabase JWT and returns the user's UUID."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    jwt = authorization.split(" ")[1]
+    try:
+        # The Supabase admin client can validate any JWT
+        user = supabase.auth.get_user(jwt)
+        return user.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# ──────────────────────────────────────────────
+# Pydantic models
+# ──────────────────────────────────────────────
 class FileAttachment(BaseModel):
     name: str
     type: str
@@ -60,20 +76,25 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
-def load_messages(session_id: str) -> List[Dict[str, str]]:
+# ──────────────────────────────────────────────
+# DATABASE HELPERS (now per‑user)
+# ──────────────────────────────────────────────
+def load_messages(user_id: str, session_id: str) -> List[Dict[str, str]]:
     res = supabase.table("conversations") \
                   .select("messages") \
+                  .eq("user_id", user_id) \
                   .eq("session_id", session_id) \
                   .execute()
     return res.data[0]["messages"] if res.data else []
 
-def save_messages(session_id: str, messages: List[Dict[str, str]]):
+def save_messages(user_id: str, session_id: str, messages: List[Dict[str, str]]):
     supabase.table("conversations") \
             .upsert({
+                "user_id": user_id,
                 "session_id": session_id,
                 "messages": messages,
                 "updated_at": "now()"
-            }, on_conflict="session_id") \
+            }, on_conflict="user_id,session_id") \
             .execute()
 
 def trim_history(messages: List[Dict]) -> List[Dict]:
@@ -97,20 +118,14 @@ def call_groq(messages: List[Dict]) -> str:
     )
     return response.choices[0].message.content
 
+# (extract_file_content remains unchanged – same as your old version)
 def extract_file_content(file: FileAttachment) -> str:
-    """
-    Decode and extract text from supported file types.
-    Returns the file content or a note if unsupported.
-    """
-    # Get file extension (lowercase)
     ext = file.name.split('.')[-1].lower() if '.' in file.name else ''
-    # Get bytes from base64
     try:
         file_bytes = base64.b64decode(file.data)
     except Exception:
         return f"[Error decoding file {file.name}]"
 
-    # --- Text-based files (original) ---
     text_extensions = {'txt', 'csv', 'md', 'json', 'xml', 'yaml', 'yml', 'py', 'js',
                        'ts', 'html', 'css', 'sh', 'bat', 'log', 'ini', 'cfg', 'toml'}
     text_mime_prefixes = ["text/", "application/json", "application/javascript",
@@ -124,7 +139,6 @@ def extract_file_content(file: FileAttachment) -> str:
         except Exception as e:
             return f"[Error reading text file {file.name}: {str(e)}]"
 
-    # --- PDF ---
     if ext == 'pdf' or file.type == 'application/pdf':
         try:
             reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
@@ -134,12 +148,11 @@ def extract_file_content(file: FileAttachment) -> str:
                 if page_text:
                     text += page_text + "\n"
             if not text.strip():
-                return f"[PDF {file.name} contains no extractable text (maybe scanned image)]"
+                return f"[PDF {file.name} contains no extractable text]"
             return f"--- Content of {file.name} (PDF) ---\n{text}\n--- End of file ---"
         except Exception as e:
             return f"[Error reading PDF {file.name}: {str(e)}]"
 
-    # --- Word (.docx) ---
     if ext == 'docx' or file.type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         try:
             doc = Document(io.BytesIO(file_bytes))
@@ -150,7 +163,6 @@ def extract_file_content(file: FileAttachment) -> str:
         except Exception as e:
             return f"[Error reading Word file {file.name}: {str(e)}]"
 
-    # --- Excel (.xlsx) ---
     if ext == 'xlsx' or file.type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
         try:
             wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
@@ -167,20 +179,19 @@ def extract_file_content(file: FileAttachment) -> str:
         except Exception as e:
             return f"[Error reading Excel file {file.name}: {str(e)}]"
 
-    # --- Fallback for images and unsupported types ---
     if file.type.startswith("image/"):
         return f"[Image attached: {file.name}]"
     return f"[File attached: {file.name} (unsupported type)]"
 
+# ──────────────────────────────────────────────
+# ROUTES
+# ──────────────────────────────────────────────
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
     session_id = req.session_id.strip()
     user_message = req.message.strip()
 
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
-
-    # 1. Extract content from all files
+    # 1. Process files
     file_contents = []
     if req.files:
         for f in req.files:
@@ -188,7 +199,6 @@ async def chat(req: ChatRequest):
             if content:
                 file_contents.append(content)
 
-    # 2. Build effective message
     effective_message = user_message
     if file_contents:
         file_text_block = "\n\n".join(file_contents)
@@ -197,27 +207,32 @@ async def chat(req: ChatRequest):
     if not effective_message:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    # 3. Process with AI
-    messages = load_messages(session_id)
+    # 2. Load conversation for this user + session
+    messages = load_messages(user_id, session_id)
     messages.append({"role": "user", "content": effective_message})
     messages = trim_history(messages)
 
+    # 3. Get AI reply
     try:
         assistant_reply = call_groq(messages)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
 
     messages.append({"role": "assistant", "content": assistant_reply})
-    save_messages(session_id, messages)
+    save_messages(user_id, session_id, messages)
 
     return ChatResponse(reply=assistant_reply)
 
 @app.delete("/chat/{session_id}")
-async def clear_history(session_id: str):
-    supabase.table("conversations").delete().eq("session_id", session_id).execute()
+async def clear_history(session_id: str, user_id: str = Depends(get_current_user)):
+    supabase.table("conversations") \
+            .delete() \
+            .eq("user_id", user_id) \
+            .eq("session_id", session_id) \
+            .execute()
     return {"message": "History cleared"}
 
-# Serve the frontend at the root URL
+# Serve the Matrix frontend
 @app.get("/")
 async def root():
     return FileResponse("index.html")
