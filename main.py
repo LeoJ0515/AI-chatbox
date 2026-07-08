@@ -2,6 +2,10 @@ import os
 import json
 import base64
 import io
+import uuid
+import hashlib
+import secrets
+import datetime
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -11,6 +15,7 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
 
+# Document parsing imports
 import PyPDF2
 from docx import Document
 from openpyxl import load_workbook
@@ -18,13 +23,12 @@ from openpyxl import load_workbook
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")        # service_role key (kept secret)
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")           # service_role key
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, GROQ_API_KEY]):
-    raise RuntimeError("Missing required environment variables in .env")
+    raise RuntimeError("Missing required environment variables")
 
-# Supabase client (admin access – service_role)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -45,24 +49,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ──────────────────────────────────────────────
-# AUTHENTICATION HELPER
-# ──────────────────────────────────────────────
-async def get_current_user(authorization: str = Header(None)):
-    """Verifies the Supabase JWT and returns the user's UUID."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    jwt = authorization.split(" ")[1]
-    try:
-        # The Supabase admin client can validate any JWT
-        user = supabase.auth.get_user(jwt)
-        return user.user.id
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-# ──────────────────────────────────────────────
+# -------------------------------------------------------------------
 # Pydantic models
-# ──────────────────────────────────────────────
+# -------------------------------------------------------------------
 class FileAttachment(BaseModel):
     name: str
     type: str
@@ -76,9 +65,68 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
-# ──────────────────────────────────────────────
-# DATABASE HELPERS (now per‑user)
-# ──────────────────────────────────────────────
+class AuthSignup(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class AuthLogin(BaseModel):
+    email: str
+    password: str
+
+# -------------------------------------------------------------------
+# Custom User Authentication
+# -------------------------------------------------------------------
+def hash_password(password: str) -> str:
+    """Hash a password with SHA-256 + salt."""
+    salt = secrets.token_hex(16)
+    hashed = hashlib.sha256((password + salt).encode()).hexdigest()
+    return f"{salt}${hashed}"
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify a password against stored hash."""
+    salt, hashed = stored_hash.split("$")
+    return hashlib.sha256((password + salt).encode()).hexdigest() == hashed
+
+def create_token(user_id: str) -> str:
+    """Create a simple token for the user."""
+    token = secrets.token_hex(32)
+    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    supabase.table("user_tokens").insert({
+        "user_id": user_id,
+        "token": token,
+        "expires_at": expires.isoformat()
+    }).execute()
+    return token
+
+def verify_token(token: str) -> Optional[str]:
+    """Verify a token and return user_id if valid."""
+    res = supabase.table("user_tokens") \
+                  .select("*") \
+                  .eq("token", token) \
+                  .execute()
+    if not res.data:
+        return None
+    record = res.data[0]
+    expires_at = datetime.datetime.fromisoformat(record["expires_at"])
+    if expires_at < datetime.datetime.now(datetime.timezone.utc):
+        supabase.table("user_tokens").delete().eq("id", record["id"]).execute()
+        return None
+    return record["user_id"]
+
+async def get_current_user(authorization: str = Header(None)):
+    """Verify custom JWT and return user ID."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ")[1]
+    user_id = verify_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return user_id
+
+# -------------------------------------------------------------------
+# Database helpers
+# -------------------------------------------------------------------
 def load_messages(user_id: str, session_id: str) -> List[Dict[str, str]]:
     res = supabase.table("conversations") \
                   .select("messages") \
@@ -118,7 +166,6 @@ def call_groq(messages: List[Dict]) -> str:
     )
     return response.choices[0].message.content
 
-# (extract_file_content remains unchanged – same as your old version)
 def extract_file_content(file: FileAttachment) -> str:
     ext = file.name.split('.')[-1].lower() if '.' in file.name else ''
     try:
@@ -183,15 +230,86 @@ def extract_file_content(file: FileAttachment) -> str:
         return f"[Image attached: {file.name}]"
     return f"[File attached: {file.name} (unsupported type)]"
 
-# ──────────────────────────────────────────────
-# ROUTES
-# ──────────────────────────────────────────────
+# -------------------------------------------------------------------
+# AUTH ENDPOINTS (Custom - No Supabase Auth)
+# -------------------------------------------------------------------
+
+# ---- Signup ----
+@app.post("/auth/signup")
+async def signup(data: AuthSignup):
+    # Validate
+    if not data.username or len(data.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if not data.email or "@" not in data.email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    if not data.password or len(data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # Check if email already exists
+    existing = supabase.table("users") \
+                       .select("id") \
+                       .eq("email", data.email) \
+                       .execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Check if username already exists
+    existing_user = supabase.table("users") \
+                            .select("id") \
+                            .eq("username", data.username) \
+                            .execute()
+    if existing_user.data:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    # Create user
+    user_id = str(uuid.uuid4())
+    hashed = hash_password(data.password)
+
+    supabase.table("users").insert({
+        "id": user_id,
+        "username": data.username,
+        "email": data.email,
+        "password_hash": hashed,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }).execute()
+
+    return {"message": "Signup successful. You can now login."}
+
+# ---- Login ----
+@app.post("/auth/login")
+async def login(data: AuthLogin):
+    # Find user by email
+    res = supabase.table("users") \
+                  .select("*") \
+                  .eq("email", data.email) \
+                  .execute()
+
+    if not res.data:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    user = res.data[0]
+
+    # Verify password
+    if not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Create token
+    token = create_token(user["id"])
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": user["username"]
+    }
+
+# -------------------------------------------------------------------
+# PROTECTED CHAT ENDPOINTS
+# -------------------------------------------------------------------
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
     session_id = req.session_id.strip()
     user_message = req.message.strip()
 
-    # 1. Process files
     file_contents = []
     if req.files:
         for f in req.files:
@@ -207,12 +325,10 @@ async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
     if not effective_message:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    # 2. Load conversation for this user + session
     messages = load_messages(user_id, session_id)
     messages.append({"role": "user", "content": effective_message})
     messages = trim_history(messages)
 
-    # 3. Get AI reply
     try:
         assistant_reply = call_groq(messages)
     except Exception as e:
@@ -223,6 +339,11 @@ async def chat(req: ChatRequest, user_id: str = Depends(get_current_user)):
 
     return ChatResponse(reply=assistant_reply)
 
+@app.get("/chat/{session_id}")
+async def get_messages(session_id: str, user_id: str = Depends(get_current_user)):
+    messages = load_messages(user_id, session_id)
+    return {"messages": messages}
+
 @app.delete("/chat/{session_id}")
 async def clear_history(session_id: str, user_id: str = Depends(get_current_user)):
     supabase.table("conversations") \
@@ -232,7 +353,9 @@ async def clear_history(session_id: str, user_id: str = Depends(get_current_user
             .execute()
     return {"message": "History cleared"}
 
-# Serve the Matrix frontend
+# -------------------------------------------------------------------
+# Frontend
+# -------------------------------------------------------------------
 @app.get("/")
 async def root():
     return FileResponse("index.html")

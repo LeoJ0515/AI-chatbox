@@ -12,7 +12,6 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* ── RESET & ROOT ── */
         * {
@@ -56,10 +55,8 @@
             pointer-events: none;
             z-index: 9999;
             background: repeating-linear-gradient(0deg,
-                    transparent 0px,
-                    transparent 3px,
-                    rgba(0, 255, 65, 0.015) 3px,
-                    rgba(0, 255, 65, 0.015) 4px);
+                    transparent 0px, transparent 3px,
+                    rgba(0, 255, 65, 0.015) 3px, rgba(0, 255, 65, 0.015) 4px);
             opacity: 0.5;
         }
 
@@ -87,7 +84,7 @@
             opacity: 0.25;
         }
 
-        /* ── ORBS (green glow) ── */
+        /* ── ORBS ── */
         .orb {
             position: fixed;
             border-radius: 50%;
@@ -252,7 +249,8 @@
             text-shadow: none;
         }
 
-        .new-chat-btn {
+        .new-chat-btn,
+        .logout-btn {
             width: 100%;
             padding: 12px;
             border-radius: 8px;
@@ -272,9 +270,11 @@
             position: relative;
             overflow: hidden;
             letter-spacing: 0.5px;
+            margin-bottom: 8px;
         }
 
-        .new-chat-btn::after {
+        .new-chat-btn::after,
+        .logout-btn::after {
             content: '';
             position: absolute;
             top: 0;
@@ -285,11 +285,13 @@
             transition: left 0.6s;
         }
 
-        .new-chat-btn:hover::after {
+        .new-chat-btn:hover::after,
+        .logout-btn:hover::after {
             left: 100%;
         }
 
-        .new-chat-btn:hover {
+        .new-chat-btn:hover,
+        .logout-btn:hover {
             background: rgba(0, 255, 65, 0.08);
             border-color: var(--matrix-green);
             box-shadow: 0 0 30px rgba(0, 255, 65, 0.15), inset 0 0 30px rgba(0, 255, 65, 0.03);
@@ -468,7 +470,6 @@
             }
         }
 
-        /* ── MESSAGES AREA ── */
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -678,7 +679,6 @@
             color: var(--matrix-green);
         }
 
-        /* typing indicator dots */
         .typing-dots {
             display: flex;
             gap: 6px;
@@ -896,7 +896,7 @@
             color: var(--danger);
         }
 
-        /* ── OVERLAY ── */
+        /* ── OVERLAY (for sidebar mobile) ── */
         .overlay {
             position: fixed;
             inset: 0;
@@ -908,6 +908,196 @@
 
         .overlay.show {
             display: block;
+        }
+
+        /* ── AUTH SCREEN (MATRIX PROFESSIONAL) ── */
+        .auth-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: radial-gradient(ellipse at 50% 50%, rgba(0, 15, 0, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            backdrop-filter: blur(6px);
+        }
+
+        .auth-container {
+            position: relative;
+            background: rgba(0, 10, 0, 0.9);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--matrix-green);
+            box-shadow: 0 0 60px rgba(0, 255, 65, 0.15), 0 0 120px rgba(0, 255, 65, 0.05);
+            border-radius: 16px;
+            padding: 40px 30px;
+            width: 380px;
+            max-width: 90vw;
+            animation: authPulse 3s ease-in-out infinite alternate;
+            overflow: hidden;
+        }
+
+        @keyframes authPulse {
+            0% {
+                box-shadow: 0 0 60px rgba(0, 255, 65, 0.15), 0 0 120px rgba(0, 255, 65, 0.05);
+            }
+
+            100% {
+                box-shadow: 0 0 80px rgba(0, 255, 65, 0.25), 0 0 160px rgba(0, 255, 65, 0.08);
+            }
+        }
+
+        /* Glowing border line animation */
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ff41, #003300, #00ff41, #003300);
+            border-radius: 18px;
+            z-index: -1;
+            animation: borderGlow 3s linear infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes borderGlow {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .auth-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--matrix-green);
+            text-shadow: 0 0 20px var(--matrix-green), 0 0 40px rgba(0, 255, 65, 0.3);
+            margin-bottom: 25px;
+            text-align: center;
+            position: relative;
+        }
+
+        .auth-title::after {
+            content: '';
+            display: block;
+            width: 60%;
+            height: 2px;
+            background: var(--matrix-green);
+            margin: 8px auto 0;
+            box-shadow: 0 0 10px var(--matrix-green);
+            opacity: 0.7;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 12px 0;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.05);
+        }
+
+        .auth-input:focus {
+            border-color: var(--matrix-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2), inset 0 0 15px rgba(0, 255, 65, 0.1);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.1), rgba(0, 255, 65, 0.05));
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            font-weight: bold;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .auth-btn:hover::before {
+            left: 100%;
+        }
+
+        .auth-btn:hover {
+            background: rgba(0, 255, 65, 0.15);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4), inset 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+
+        .auth-footer {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .auth-link {
+            color: var(--matrix-green);
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+            margin-left: 4px;
+            transition: text-shadow 0.2s;
+        }
+
+        .auth-link:hover {
+            text-shadow: 0 0 10px var(--matrix-green);
+        }
+
+        .auth-msg {
+            margin-top: 12px;
+            font-size: 0.75rem;
+            text-align: center;
+            padding: 6px 12px;
+            border-radius: 4px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            opacity: 1;
+        }
+
+        .auth-msg.error {
+            background: rgba(255, 77, 106, 0.15);
+            color: #ff8080;
+            border: 1px solid rgba(255, 77, 106, 0.3);
+        }
+
+        .auth-msg.success {
+            background: rgba(0, 255, 65, 0.08);
+            color: #80ff80;
+            border: 1px solid rgba(0, 255, 65, 0.2);
+        }
+
+        .auth-msg.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
         }
 
         /* ── RESPONSIVE ── */
@@ -950,6 +1140,11 @@
             .message {
                 max-width: 95%;
             }
+
+            .auth-container {
+                width: 90%;
+                padding: 25px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -978,97 +1173,15 @@
                 width: 17px;
                 height: 17px;
             }
-        }
 
-        /* ── AUTH SCREEN ── */
-        .auth-screen {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .auth-box {
-            background: rgba(0, 15, 0, 0.9);
-            border: 1px solid var(--matrix-green);
-            border-radius: 12px;
-            padding: 30px 25px;
-            width: 350px;
-            box-shadow: 0 0 40px rgba(0, 255, 65, 0.2);
-            text-align: center;
-        }
-
-        .auth-box h2 {
-            color: var(--matrix-green);
-            margin-bottom: 20px;
-            font-size: 1.4rem;
-        }
-
-        .auth-input {
-            width: 100%;
-            padding: 10px 14px;
-            margin: 8px 0;
-            background: #000;
-            border: 1px solid var(--matrix-green);
-            color: var(--text);
-            font-family: inherit;
-            border-radius: 4px;
-        }
-
-        .auth-btn {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            background: transparent;
-            border: 1px solid var(--matrix-green);
-            color: var(--matrix-green);
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .auth-btn:hover {
-            background: rgba(0, 255, 65, 0.15);
-            box-shadow: 0 0 25px rgba(0, 255, 65, 0.3);
-        }
-
-        .auth-toggle {
-            margin-top: 15px;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            cursor: pointer;
-            text-decoration: underline;
-        }
-
-        .error-msg {
-            color: #ff4d6a;
-            font-size: 0.8rem;
-            margin-top: 8px;
+            .auth-container {
+                padding: 20px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <!-- AUTH SCREEN -->
-    <div id="authScreen" class="auth-screen">
-        <div class="auth-box">
-            <h2 id="authTitle">SIGN IN</h2>
-            <input type="email" id="authEmail" class="auth-input" placeholder="Email" />
-            <input type="password" id="authPassword" class="auth-input" placeholder="Password" />
-            <button id="authSubmitBtn" class="auth-btn">SIGN IN</button>
-            <div id="authError" class="error-msg"></div>
-            <div class="auth-toggle" id="authToggle">
-                Don't have an account? <strong style="color:var(--matrix-green)">Sign up</strong>
-            </div>
-        </div>
-    </div>
-
     <!-- ── OVERLAYS ── -->
     <div id="scanlines"></div>
     <div id="grid-overlay"></div>
@@ -1080,7 +1193,15 @@
     <button class="menu-toggle" id="menuToggle"><span></span></button>
     <div class="overlay" id="overlay"></div>
 
-    <div class="app">
+    <!-- ── AUTH SCREEN ── -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-container" id="authBox">
+            <!-- dynamic content injected by JS -->
+        </div>
+    </div>
+
+    <!-- ── MAIN APP (hidden initially) ── -->
+    <div class="app" id="app" style="display:none;">
         <!-- SIDEBAR -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -1094,6 +1215,9 @@
                         <path d="M12 5v14M5 12h14" />
                     </svg>
                     + NEW SESSION
+                </button>
+                <button class="logout-btn" id="logoutBtn">
+                    <span style="font-size:1rem;">⏻</span> LOGOUT
                 </button>
             </div>
             <div class="session-list" id="sessionList"></div>
@@ -1137,95 +1261,31 @@
     </div>
 
     <script>
-        // ── Supabase client ──
-        const SUPABASE_URL = "https://your-project.supabase.co";   // replace with your Supabase URL
-        const SUPABASE_ANON_KEY = "your-anon-key";                // replace with your Supabase anon key
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        let authToken = localStorage.getItem("auth_token");
-        let currentUser = null;
-
-        // If token exists, validate it
-        if (authToken) {
-            supabaseClient.auth.setSession({ access_token: authToken, refresh_token: "" })
-                .then(({ data: { session }, error }) => {
-                    if (session) {
-                        currentUser = session.user;
-                        document.getElementById("authScreen").style.display = "none";
-                    } else {
-                        localStorage.removeItem("auth_token");
-                        authToken = null;
-                    }
-                });
-        } else {
-            // Show auth screen, hide main app
-            document.getElementById("app").style.display = "none";
-        }
-
-        // Auth UI logic
-        const authScreen = document.getElementById("authScreen");
-        const authTitle = document.getElementById("authTitle");
-        const authEmail = document.getElementById("authEmail");
-        const authPassword = document.getElementById("authPassword");
-        const authSubmitBtn = document.getElementById("authSubmitBtn");
-        const authError = document.getElementById("authError");
-        const authToggle = document.getElementById("authToggle");
-
-        let isSignUp = false;
-
-        authToggle.addEventListener("click", () => {
-            isSignUp = !isSignUp;
-            authTitle.textContent = isSignUp ? "SIGN UP" : "SIGN IN";
-            authSubmitBtn.textContent = isSignUp ? "SIGN UP" : "SIGN IN";
-            authToggle.innerHTML = isSignUp
-                ? 'Already have an account? <strong style="color:var(--matrix-green)">Sign in</strong>'
-                : 'Don\'t have an account? <strong style="color:var(--matrix-green)">Sign up</strong>';
-        });
-
-        authSubmitBtn.addEventListener("click", async () => {
-            const email = authEmail.value;
-            const password = authPassword.value;
-            if (!email || !password) {
-                authError.textContent = "Please fill all fields.";
-                return;
-            }
-            authError.textContent = "";
-            const { data, error } = isSignUp
-                ? await supabaseClient.auth.signUp({ email, password })
-                : await supabaseClient.auth.signInWithPassword({ email, password });
-
-            if (error) {
-                authError.textContent = error.message;
-                return;
-            }
-
-            // Supabase returns a session after sign-in; after sign-up may need confirmation
-            if (data.session) {
-                localStorage.setItem("auth_token", data.session.access_token);
-                authToken = data.session.access_token;
-                currentUser = data.session.user;
-                authScreen.style.display = "none";
-                document.getElementById("app").style.display = "flex";
-                // Initialize the chat now (call your existing init)
-                loadSessions();
-            } else if (data.user && isSignUp) {
-                authError.textContent = "Sign-up successful! Check your email to confirm (or disable email confirmation in Supabase).";
-            }
-        });
         (function () {
-            // ─── CONFIG ──────────────────────────────────────────────
-            const API_URL = "/chat";
-            const STORAGE_KEY = "synapse_sessions";
-            const CHAT_PREFIX = "synapse_chat_";
+            // ─── BACKEND API ────────────────────────────────────────
+            const API_BASE = "";
+            const CHAT_URL = "/chat";
+            const AUTH_URLS = {
+                signup: "/auth/signup",
+                login: "/auth/login"
+            };
 
-            // ─── STATE ──────────────────────────────────────────────
+            const SESSIONS_META_KEY = "synapse_sessions_meta";
+            const TOKEN_KEY = "auth_token";
+
             let currentSessionId = null;
             let sessions = [];
             let isWaiting = false;
             let attachedFiles = [];
+            let authToken = localStorage.getItem(TOKEN_KEY);
+            let currentUsername = localStorage.getItem("current_username") || "";
+            let messageTimer = null;
+            let welcomeVisible = false;   // whether the welcome message is currently displayed
 
-            // ─── DOM ──────────────────────────────────────────────────
+            // DOM elements
+            const authScreen = document.getElementById("authScreen");
+            const authBox = document.getElementById("authBox");
+            const appContainer = document.getElementById("app");
             const sidebar = document.getElementById("sidebar");
             const menuToggle = document.getElementById("menuToggle");
             const overlay = document.getElementById("overlay");
@@ -1238,13 +1298,13 @@
             const fileInput = document.getElementById("fileInput");
             const filePreview = document.getElementById("filePreview");
             const dragOverlay = document.getElementById("dragOverlay");
+            const logoutBtn = document.getElementById("logoutBtn");
+            const inputArea = document.getElementById("inputArea");
 
             // ─── MATRIX RAIN ────────────────────────────────────────
             const matrixCanvas = document.getElementById('matrix-canvas');
             const mctx = matrixCanvas.getContext('2d');
-            let rainDrops = [];
-            let matrixCols = 0;
-
+            let rainDrops = [], matrixCols = 0;
             function resizeMatrix() {
                 matrixCanvas.width = window.innerWidth;
                 matrixCanvas.height = window.innerHeight;
@@ -1252,17 +1312,14 @@
                 rainDrops = [];
                 for (let i = 0; i < matrixCols; i++) {
                     rainDrops.push({
-                        x: i * 20,
-                        y: Math.random() * matrixCanvas.height,
+                        x: i * 20, y: Math.random() * matrixCanvas.height,
                         speed: 0.5 + Math.random() * 1.5,
-                        length: 10 + Math.floor(Math.random() * 20),
                         chars: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
                     });
                 }
             }
             window.addEventListener('resize', resizeMatrix);
             resizeMatrix();
-
             function drawMatrixRain() {
                 mctx.fillStyle = 'rgba(5, 8, 5, 0.05)';
                 mctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
@@ -1274,151 +1331,281 @@
                     mctx.fillStyle = `rgba(0, ${green}, 30, ${0.4 + 0.3 * brightness})`;
                     mctx.fillText(char, d.x, d.y);
                     d.y += d.speed;
-                    if (d.y > matrixCanvas.height + 20) {
-                        d.y = -20;
-                        d.speed = 0.5 + Math.random() * 1.5;
-                    }
+                    if (d.y > matrixCanvas.height + 20) { d.y = -20; d.speed = 0.5 + Math.random() * 1.5; }
                 }
                 requestAnimationFrame(drawMatrixRain);
             }
             drawMatrixRain();
 
             // ─── GLOW PARTICLES ─────────────────────────────────────
-            const canvas = document.createElement('canvas');
-            canvas.style.position = 'fixed';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.pointerEvents = 'none';
-            canvas.style.zIndex = '0';
-            canvas.style.opacity = '0.35';
-            document.body.appendChild(canvas);
-
-            const ctx = canvas.getContext('2d');
-            let particles = [];
-            let mouseX = -1000,
-                mouseY = -1000;
-
-            function resizeParticles() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }
-            window.addEventListener('resize', resizeParticles);
-            resizeParticles();
-
+            const canvasParticles = document.createElement('canvas');
+            canvasParticles.style.position = 'fixed'; canvasParticles.style.top = '0'; canvasParticles.style.left = '0';
+            canvasParticles.style.width = '100%'; canvasParticles.style.height = '100%';
+            canvasParticles.style.pointerEvents = 'none'; canvasParticles.style.zIndex = '0'; canvasParticles.style.opacity = '0.35';
+            document.body.appendChild(canvasParticles);
+            const ctx = canvasParticles.getContext('2d');
+            let particles = [], mouseX = -1000, mouseY = -1000;
+            function resizeParticles() { canvasParticles.width = window.innerWidth; canvasParticles.height = window.innerHeight; }
+            window.addEventListener('resize', resizeParticles); resizeParticles();
             class Particle {
-                constructor() {
-                    this.reset();
-                }
+                constructor() { this.reset(); }
                 reset() {
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
-                    this.size = Math.random() * 2 + 0.5;
-                    this.speedX = (Math.random() - 0.5) * 0.4;
-                    this.speedY = (Math.random() - 0.5) * 0.4;
-                    this.opacity = Math.random() * 0.4 + 0.1;
+                    this.x = Math.random() * canvasParticles.width; this.y = Math.random() * canvasParticles.height;
+                    this.size = Math.random() * 2 + 0.5; this.speedX = (Math.random() - 0.5) * 0.4;
+                    this.speedY = (Math.random() - 0.5) * 0.4; this.opacity = Math.random() * 0.4 + 0.1;
                     this.pulse = Math.random() * Math.PI * 2;
                 }
                 update() {
-                    const dx = mouseX - this.x;
-                    const dy = mouseY - this.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 180) {
-                        const force = (180 - dist) / 180 * 0.015;
-                        this.speedX += dx * force * 0.001;
-                        this.speedY += dy * force * 0.001;
-                    }
-                    this.x += this.speedX;
-                    this.y += this.speedY;
-                    this.speedX *= 0.99;
-                    this.speedY *= 0.99;
-                    this.pulse += 0.02;
-                    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
-                        this.reset();
-                    }
+                    const dx = mouseX - this.x, dy = mouseY - this.y, dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 180) { const force = (180 - dist) / 180 * 0.015; this.speedX += dx * force * 0.001; this.speedY += dy * force * 0.001; }
+                    this.x += this.speedX; this.y += this.speedY; this.speedX *= 0.99; this.speedY *= 0.99; this.pulse += 0.02;
+                    if (this.x < 0 || this.x > canvasParticles.width || this.y < 0 || this.y > canvasParticles.height) this.reset();
                 }
                 draw() {
-                    const glow = 0.5 + 0.5 * Math.sin(this.pulse);
-                    const alpha = this.opacity * (0.6 + 0.4 * glow);
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size * (1 + 0.3 * glow), 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`;
-                    ctx.fill();
-                    if (this.size > 1.2) {
-                        ctx.shadowColor = 'rgba(0, 255, 65, 0.15)';
-                        ctx.shadowBlur = 12;
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    }
+                    const glow = 0.5 + 0.5 * Math.sin(this.pulse), alpha = this.opacity * (0.6 + 0.4 * glow);
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size * (1 + 0.3 * glow), 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`; ctx.fill();
+                    if (this.size > 1.2) { ctx.shadowColor = 'rgba(0, 255, 65, 0.15)'; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0; }
                 }
             }
-
             for (let i = 0; i < 120; i++) particles.push(new Particle());
-
             function animateParticles() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                particles.forEach(p => {
-                    p.update();
-                    p.draw();
-                });
-                // connections
+                ctx.clearRect(0, 0, canvasParticles.width, canvasParticles.height);
+                particles.forEach(p => { p.update(); p.draw(); });
                 for (let i = 0; i < particles.length; i++) {
                     for (let j = i + 1; j < particles.length; j++) {
-                        const dx = particles[i].x - particles[j].x;
-                        const dy = particles[i].y - particles[j].y;
+                        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
                         if (dist < 80) {
-                            ctx.beginPath();
-                            ctx.moveTo(particles[i].x, particles[i].y);
-                            ctx.lineTo(particles[j].x, particles[j].y);
-                            ctx.strokeStyle = `rgba(0, 255, 65, ${0.03 * (1 - dist / 80)})`;
-                            ctx.lineWidth = 0.4;
-                            ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(0, 255, 65, ${0.03 * (1 - dist / 80)})`; ctx.lineWidth = 0.4; ctx.stroke();
                         }
                     }
                 }
                 requestAnimationFrame(animateParticles);
             }
             animateParticles();
+            window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
 
-            window.addEventListener('mousemove', (e) => {
-                mouseX = e.clientX;
-                mouseY = e.clientY;
+            // ─── AUTH UI ──────────────────────────────────────────────
+            function clearMessageTimer() {
+                if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
+            }
+
+            function showMessage(text, type) {
+                clearMessageTimer();
+                const existingMsg = authBox.querySelector('.auth-msg');
+                if (existingMsg) existingMsg.remove();
+                if (!text) return;
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `auth-msg ${type}`;
+                msgDiv.textContent = text;
+                const submitBtn = authBox.querySelector('.auth-btn');
+                if (submitBtn && submitBtn.parentNode === authBox) {
+                    submitBtn.insertAdjacentElement('afterend', msgDiv);
+                } else {
+                    authBox.appendChild(msgDiv);
+                }
+
+                messageTimer = setTimeout(() => {
+                    msgDiv.classList.add('hidden');
+                    msgDiv.addEventListener('transitionend', () => {
+                        if (msgDiv.parentNode) msgDiv.remove();
+                    });
+                }, 3000);
+            }
+
+            function renderAuthForm(mode = 'login', message = '', messageType = '') {
+                clearMessageTimer();
+                let html = `<h2 class="auth-title">${mode === 'login' ? 'SIGN IN' : 'SIGN UP'}</h2>`;
+
+                if (mode === 'signup') {
+                    html += `<input type="text" id="authUsername" class="auth-input" placeholder="Username" />`;
+                }
+                html += `<input type="email" id="authEmail" class="auth-input" placeholder="Email" />`;
+                html += `<input type="password" id="authPassword" class="auth-input" placeholder="Password" />`;
+                html += `<button id="authSubmit" class="auth-btn">${mode === 'login' ? 'SIGN IN' : 'SIGN UP'}</button>`;
+                html += `<div class="auth-footer">${mode === 'login' ? "Don't have an account?" : "Already have an account?"} <span class="auth-link" id="authSwitch">${mode === 'login' ? 'SIGN UP' : 'SIGN IN'}</span></div>`;
+
+                authBox.innerHTML = html;
+
+                const submitBtn = document.getElementById("authSubmit");
+                if (submitBtn) submitBtn.addEventListener("click", () => handleAuthSubmit(mode));
+
+                const switchEl = document.getElementById("authSwitch");
+                if (switchEl) switchEl.addEventListener("click", () => {
+                    const newMode = (mode === 'login') ? 'signup' : 'login';
+                    renderAuthForm(newMode);
+                });
+
+                const inputs = authBox.querySelectorAll("input");
+                inputs.forEach(input => {
+                    input.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter") handleAuthSubmit(mode);
+                    });
+                });
+
+                if (message) showMessage(message, messageType);
+            }
+
+            async function handleAuthSubmit(mode) {
+                const emailEl = document.getElementById("authEmail");
+                const passwordEl = document.getElementById("authPassword");
+                const usernameEl = document.getElementById("authUsername");
+                const email = emailEl ? emailEl.value.trim() : '';
+                const password = passwordEl ? passwordEl.value.trim() : '';
+                const username = usernameEl ? usernameEl.value.trim() : '';
+
+                if ((mode === 'login' || mode === 'signup') && !email) {
+                    showMessage("⚠ Email required", "error");
+                    return;
+                }
+                if ((mode === 'login' || mode === 'signup') && !password) {
+                    showMessage("⚠ Password required", "error");
+                    return;
+                }
+                if (mode === 'signup' && (!username || username.length < 3)) {
+                    showMessage("⚠ Username must be at least 3 characters", "error");
+                    return;
+                }
+
+                let url, body;
+                if (mode === 'signup') {
+                    url = AUTH_URLS.signup;
+                    body = { username, email, password };
+                } else if (mode === 'login') {
+                    url = AUTH_URLS.login;
+                    body = { email, password };
+                }
+
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Request failed');
+
+                    if (mode === 'signup') {
+                        showMessage("✓ Account created. You can now login.", "success");
+                        renderAuthForm('login');
+                    } else if (mode === 'login') {
+                        authToken = data.access_token;
+                        currentUsername = data.username || "";
+                        localStorage.setItem(TOKEN_KEY, authToken);
+                        localStorage.setItem("current_username", currentUsername);
+                        authScreen.style.display = 'none';
+                        appContainer.style.display = 'flex';
+                        initChat();   // creates a fresh session with welcome message
+                    }
+                } catch (err) {
+                    showMessage(`⚠ ${err.message}`, "error");
+                }
+            }
+
+            function checkAuthOnLoad() {
+                if (authToken) {
+                    authScreen.style.display = 'none';
+                    appContainer.style.display = 'flex';
+                    initChat();
+                } else {
+                    renderAuthForm('login');
+                }
+            }
+
+            logoutBtn.addEventListener("click", () => {
+                localStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem("current_username");
+                localStorage.removeItem(SESSIONS_META_KEY);
+                authToken = null;
+                currentUsername = "";
+                sessions = [];
+                currentSessionId = null;
+                welcomeVisible = false;
+                messagesArea.innerHTML = '';
+                sessionList.innerHTML = '';
+                authScreen.style.display = 'flex';
+                appContainer.style.display = 'none';
+                renderAuthForm('login');
             });
 
-            // ─── SESSION MANAGEMENT ──────────────────────────────────
-            function loadSessions() {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                if (stored) {
-                    try { sessions = JSON.parse(stored); } catch { sessions = []; }
-                }
+            // ─── CHAT INITIALIZATION (creates a new session with welcome) ──
+            function initChat() {
+                startNewSession();
+                userInput.focus();
+            }
+
+            function startNewSession() {
+                // load existing session metadata for this user
+                const key = getSessionMetaKey();
+                const stored = localStorage.getItem(key);
+                if (stored) { try { sessions = JSON.parse(stored); } catch { sessions = []; } } else { sessions = []; }
+
+                // create a brand new session
+                const newId = generateId();
+                const newSession = { id: newId, title: "New Session", lastActive: Date.now() };
+                sessions.unshift(newSession);
+                saveSessionsMeta();
+                currentSessionId = newId;
+
+                // show welcome message
+                messagesArea.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;pointer-events:none;">
+                        <div style="font-size:1.8rem;color:var(--matrix-green);text-shadow:0 0 20px var(--matrix-green);letter-spacing:2px;">
+                            WELCOME BACK, ${currentUsername.toUpperCase()}
+                        </div>
+                        <div style="color:var(--text-secondary);margin-top:12px;font-size:0.9rem;">
+                            Type a message to begin
+                        </div>
+                    </div>
+                `;
+                welcomeVisible = true;
+                renderSessions();
+            }
+
+            // ─── SESSION MANAGEMENT (per-user, server-backed) ─────────
+            function getSessionMetaKey() {
+                return SESSIONS_META_KEY + "_" + (currentUsername || "user");
+            }
+
+            async function loadSessions() {
+                // used when switching sessions from sidebar, not on login
+                const key = getSessionMetaKey();
+                const stored = localStorage.getItem(key);
+                if (stored) { try { sessions = JSON.parse(stored); } catch { sessions = []; } }
                 if (sessions.length === 0) {
                     const defaultId = generateId();
                     sessions = [{ id: defaultId, title: "General", lastActive: Date.now() }];
-                    saveSessions();
-                    saveChatHistory(defaultId, []);
+                    saveSessionsMeta();
                 }
                 currentSessionId = sessions[0].id;
                 renderSessions();
-                switchSession(currentSessionId);
+                await loadChatHistoryFromServer(currentSessionId);
             }
 
-            function saveSessions() {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+            function saveSessionsMeta() {
+                const key = getSessionMetaKey();
+                localStorage.setItem(key, JSON.stringify(sessions));
             }
 
-            function generateId() {
-                return 'sn_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
-            }
+            function generateId() { return 'sn_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36); }
 
-            function getChatHistory(sessionId) {
-                const raw = localStorage.getItem(CHAT_PREFIX + sessionId);
-                return raw ? JSON.parse(raw) : [];
-            }
-
-            function saveChatHistory(sessionId, messages) {
-                localStorage.setItem(CHAT_PREFIX + sessionId, JSON.stringify(messages));
+            async function loadChatHistoryFromServer(sessionId) {
+                try {
+                    const res = await fetch(`${CHAT_URL}/${sessionId}`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        renderMessages(data.messages || []);
+                    } else {
+                        renderMessages([]);
+                    }
+                } catch {
+                    renderMessages([]);
+                }
             }
 
             function renderSessions() {
@@ -1447,21 +1634,26 @@
                 if (active) chatTitleText.textContent = active.title || 'General';
             }
 
-            function switchSession(sessionId) {
+            async function switchSession(sessionId) {
                 if (isWaiting) return;
                 currentSessionId = sessionId;
-                const messages = getChatHistory(sessionId);
-                renderMessages(messages);
+                welcomeVisible = false;   // switching away from welcome
+                await loadChatHistoryFromServer(sessionId);
                 renderSessions();
                 closeMobileSidebar();
                 userInput.focus();
             }
 
-            function deleteSession(sessionId) {
+            async function deleteSession(sessionId) {
                 if (sessions.length <= 1) return;
-                localStorage.removeItem(CHAT_PREFIX + sessionId);
+                try {
+                    await fetch(`${CHAT_URL}/${sessionId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                } catch {}
                 sessions = sessions.filter(s => s.id !== sessionId);
-                saveSessions();
+                saveSessionsMeta();
                 if (currentSessionId === sessionId) {
                     currentSessionId = sessions[0].id;
                     switchSession(currentSessionId);
@@ -1475,9 +1667,9 @@
                 const newId = generateId();
                 const newSess = { id: newId, title: "New Session", lastActive: Date.now() };
                 sessions.unshift(newSess);
-                saveSessions();
-                saveChatHistory(newId, []);
+                saveSessionsMeta();
                 currentSessionId = newId;
+                welcomeVisible = false;
                 renderMessages([]);
                 renderSessions();
                 closeMobileSidebar();
@@ -1490,7 +1682,6 @@
                 messages.forEach(msg => addMessageBubble(msg.role, msg.content, false));
                 scrollToBottom();
             }
-
             function addMessageBubble(role, content, scroll = true) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = `message ${role}`;
@@ -1508,7 +1699,6 @@
                 if (scroll) scrollToBottom();
                 return { msgDiv, bubble };
             }
-
             function addCopyButtons(container) {
                 container.querySelectorAll('pre').forEach(pre => {
                     if (pre.querySelector('.copy-code-btn')) return;
@@ -1527,10 +1717,7 @@
                     pre.appendChild(btn);
                 });
             }
-
-            function scrollToBottom() {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }
+            function scrollToBottom() { messagesArea.scrollTop = messagesArea.scrollHeight; }
 
             // ─── TYPING & MARKDOWN MORPH ─────────────────────────────
             function typeTextAndMorph(bubble, rawText, speed = 14) {
@@ -1557,8 +1744,7 @@
                             setTimeout(() => {
                                 const markdownHTML = marked.parse(rawText);
                                 bubble.innerHTML = `<div class="markdown-body">${markdownHTML}</div>`;
-                                bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(
-                                    block));
+                                bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
                                 addCopyButtons(bubble);
                                 scrollToBottom();
                                 resolve();
@@ -1568,7 +1754,6 @@
                 });
             }
 
-            // ─── TYPING INDICATOR ────────────────────────────────────
             function showTypingIndicator() {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message assistant';
@@ -1587,10 +1772,7 @@
                 scrollToBottom();
                 return msgDiv;
             }
-
-            function removeTypingIndicator(el) {
-                if (el && el.parentNode) el.remove();
-            }
+            function removeTypingIndicator(el) { if (el && el.parentNode) el.remove(); }
 
             // ─── FILE HANDLING ──────────────────────────────────────
             function getFileIcon(file) {
@@ -1602,7 +1784,6 @@
                 if (['txt', 'md', 'json', 'py', 'js', 'html', 'css'].includes(ext)) return '📃';
                 return '📎';
             }
-
             function updateFilePreview() {
                 filePreview.innerHTML = '';
                 attachedFiles.forEach((file, idx) => {
@@ -1618,61 +1799,54 @@
                     const removeBtn = document.createElement('span');
                     removeBtn.className = 'remove-file';
                     removeBtn.textContent = '✕';
-                    removeBtn.onclick = () => {
-                        attachedFiles.splice(idx, 1);
-                        updateFilePreview();
-                    };
+                    removeBtn.onclick = () => { attachedFiles.splice(idx, 1); updateFilePreview(); };
                     chip.appendChild(removeBtn);
                     filePreview.appendChild(chip);
                 });
             }
-
             function addFiles(files) {
                 for (let f of files) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         attachedFiles.push({
-                            name: f.name,
-                            type: f.type,
-                            data: ev.target.result.split(',')[1],
-                            blob: f
+                            name: f.name, type: f.type,
+                            data: ev.target.result.split(',')[1], blob: f
                         });
                         updateFilePreview();
                     };
                     reader.readAsDataURL(f);
                 }
             }
-
             fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) {
-                    addFiles(e.target.files);
-                    fileInput.value = '';
-                }
+                if (e.target.files.length) { addFiles(e.target.files); fileInput.value = ''; }
             });
-
-            const inputArea = document.getElementById('inputArea');
-            inputArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dragOverlay.classList.add('active');
-            });
-            inputArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                dragOverlay.classList.remove('active');
-            });
+            inputArea.addEventListener('dragover', (e) => { e.preventDefault(); dragOverlay.classList.add('active'); });
+            inputArea.addEventListener('dragleave', (e) => { e.preventDefault(); dragOverlay.classList.remove('active'); });
             inputArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dragOverlay.classList.remove('active');
-                if (e.dataTransfer.files.length) {
-                    addFiles(e.dataTransfer.files);
-                }
+                e.preventDefault(); dragOverlay.classList.remove('active');
+                if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
             });
 
-            // ─── SEND MESSAGE ────────────────────────────────────────
+            // ─── SEND MESSAGE (AUTH) ──────────────────────────────────
             async function sendMessage() {
                 if (isWaiting) return;
+                if (!authToken) {
+                    alert("Please log in first.");
+                    return;
+                }
+
                 const text = userInput.value.trim();
                 if (!text && attachedFiles.length === 0) return;
-                if (!currentSessionId) newSession();
+
+                // If welcome message is visible, clear it first
+                if (welcomeVisible) {
+                    messagesArea.innerHTML = '';
+                    welcomeVisible = false;
+                }
+
+                if (!currentSessionId) {
+                    startNewSession();
+                }
 
                 isWaiting = true;
                 userInput.disabled = true;
@@ -1682,19 +1856,16 @@
                     userContent += '\n[Attached: ' + attachedFiles.map(f => f.name).join(', ') + ']';
                 }
                 addMessageBubble('user', userContent);
-                const history = getChatHistory(currentSessionId);
-                history.push({ role: 'user', content: userContent });
-                saveChatHistory(currentSessionId, history);
 
                 const sess = sessions.find(s => s.id === currentSessionId);
                 if (sess && (sess.title === 'New Session' || sess.title === 'General')) {
                     sess.title = text.substring(0, 30) || 'File upload';
                     sess.lastActive = Date.now();
-                    saveSessions();
+                    saveSessionsMeta();
                     renderSessions();
                 } else if (sess) {
                     sess.lastActive = Date.now();
-                    saveSessions();
+                    saveSessionsMeta();
                     renderSessions();
                 }
 
@@ -1706,12 +1877,10 @@
                         session_id: currentSessionId,
                         message: text,
                         files: attachedFiles.length > 0 ? attachedFiles.map(f => ({
-                            name: f.name,
-                            type: f.type,
-                            data: f.data
+                            name: f.name, type: f.type, data: f.data
                         })) : undefined
                     };
-                    const response = await fetch(API_URL, {
+                    const response = await fetch(CHAT_URL, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1720,6 +1889,17 @@
                         body: JSON.stringify(payload)
                     });
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            localStorage.removeItem(TOKEN_KEY);
+                            localStorage.removeItem("current_username");
+                            localStorage.removeItem(getSessionMetaKey());
+                            authToken = null;
+                            currentUsername = "";
+                            authScreen.style.display = 'flex';
+                            appContainer.style.display = 'none';
+                            renderAuthForm('login', '⚠ Session expired. Please login again.', 'error');
+                            return;
+                        }
                         const errData = await response.json();
                         throw new Error(errData.detail || 'Request failed');
                     }
@@ -1727,12 +1907,9 @@
                     const reply = data.reply;
 
                     removeTypingIndicator(typingIndicator);
-
                     const { bubble } = addMessageBubble('assistant', '', false);
                     await typeTextAndMorph(bubble, reply);
 
-                    history.push({ role: 'assistant', content: reply });
-                    saveChatHistory(currentSessionId, history);
                     attachedFiles = [];
                     updateFilePreview();
                 } catch (error) {
@@ -1749,10 +1926,7 @@
             // ─── EVENT LISTENERS ────────────────────────────────────
             sendBtn.addEventListener('click', sendMessage);
             userInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
             });
             newChatBtn.addEventListener('click', newSession);
             menuToggle.addEventListener('click', () => {
@@ -1765,7 +1939,6 @@
                 overlay.classList.remove('show');
                 menuToggle.classList.remove('active');
             });
-
             function closeMobileSidebar() {
                 sidebar.classList.remove('open');
                 overlay.classList.remove('show');
@@ -1774,17 +1947,15 @@
 
             // ─── UTILS ──────────────────────────────────────────────
             function escapeHtml(text) {
-                return String(text).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[
-                    m
-                ]));
+                return String(text).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]);
             }
-
             function formatTime(timestamp) {
                 return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
 
             // ─── INIT ────────────────────────────────────────────────
-            loadSessions();
+            checkAuthOnLoad();
+
         })();
     </script>
 </body>
