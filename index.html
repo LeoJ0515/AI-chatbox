@@ -1265,12 +1265,12 @@
             // ─── BACKEND API ────────────────────────────────────────
             const API_BASE = "";
             const CHAT_URL = "/chat";
+            const SESSIONS_URL = "/sessions";
             const AUTH_URLS = {
                 signup: "/auth/signup",
                 login: "/auth/login"
             };
 
-            const SESSIONS_META_KEY = "synapse_sessions_meta";
             const TOKEN_KEY = "auth_token";
 
             let currentSessionId = null;
@@ -1280,7 +1280,7 @@
             let authToken = localStorage.getItem(TOKEN_KEY);
             let currentUsername = localStorage.getItem("current_username") || "";
             let messageTimer = null;
-            let welcomeVisible = false;   // whether the welcome message is currently displayed
+            let welcomeVisible = false;
 
             // DOM elements
             const authScreen = document.getElementById("authScreen");
@@ -1301,7 +1301,7 @@
             const logoutBtn = document.getElementById("logoutBtn");
             const inputArea = document.getElementById("inputArea");
 
-            // ─── MATRIX RAIN ────────────────────────────────────────
+            // ─── MATRIX RAIN (unchanged) ─────────────────────────────
             const matrixCanvas = document.getElementById('matrix-canvas');
             const mctx = matrixCanvas.getContext('2d');
             let rainDrops = [], matrixCols = 0;
@@ -1337,7 +1337,7 @@
             }
             drawMatrixRain();
 
-            // ─── GLOW PARTICLES ─────────────────────────────────────
+            // ─── GLOW PARTICLES (unchanged) ──────────────────────────
             const canvasParticles = document.createElement('canvas');
             canvasParticles.style.position = 'fixed'; canvasParticles.style.top = '0'; canvasParticles.style.left = '0';
             canvasParticles.style.width = '100%'; canvasParticles.style.height = '100%';
@@ -1387,225 +1387,144 @@
             animateParticles();
             window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
 
-            // ─── AUTH UI ──────────────────────────────────────────────
-            function clearMessageTimer() {
-                if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; }
-            }
-
+            // ─── AUTH UI (unchanged) ─────────────────────────────────
+            function clearMessageTimer() { if (messageTimer) { clearTimeout(messageTimer); messageTimer = null; } }
             function showMessage(text, type) {
                 clearMessageTimer();
                 const existingMsg = authBox.querySelector('.auth-msg');
                 if (existingMsg) existingMsg.remove();
                 if (!text) return;
-
                 const msgDiv = document.createElement('div');
                 msgDiv.className = `auth-msg ${type}`;
                 msgDiv.textContent = text;
                 const submitBtn = authBox.querySelector('.auth-btn');
-                if (submitBtn && submitBtn.parentNode === authBox) {
-                    submitBtn.insertAdjacentElement('afterend', msgDiv);
-                } else {
-                    authBox.appendChild(msgDiv);
-                }
-
+                if (submitBtn && submitBtn.parentNode === authBox) submitBtn.insertAdjacentElement('afterend', msgDiv);
+                else authBox.appendChild(msgDiv);
                 messageTimer = setTimeout(() => {
                     msgDiv.classList.add('hidden');
-                    msgDiv.addEventListener('transitionend', () => {
-                        if (msgDiv.parentNode) msgDiv.remove();
-                    });
+                    msgDiv.addEventListener('transitionend', () => { if (msgDiv.parentNode) msgDiv.remove(); });
                 }, 3000);
             }
-
             function renderAuthForm(mode = 'login', message = '', messageType = '') {
                 clearMessageTimer();
                 let html = `<h2 class="auth-title">${mode === 'login' ? 'SIGN IN' : 'SIGN UP'}</h2>`;
-
-                if (mode === 'signup') {
-                    html += `<input type="text" id="authUsername" class="auth-input" placeholder="Username" />`;
-                }
+                if (mode === 'signup') html += `<input type="text" id="authUsername" class="auth-input" placeholder="Username" />`;
                 html += `<input type="email" id="authEmail" class="auth-input" placeholder="Email" />`;
                 html += `<input type="password" id="authPassword" class="auth-input" placeholder="Password" />`;
                 html += `<button id="authSubmit" class="auth-btn">${mode === 'login' ? 'SIGN IN' : 'SIGN UP'}</button>`;
                 html += `<div class="auth-footer">${mode === 'login' ? "Don't have an account?" : "Already have an account?"} <span class="auth-link" id="authSwitch">${mode === 'login' ? 'SIGN UP' : 'SIGN IN'}</span></div>`;
-
                 authBox.innerHTML = html;
-
-                const submitBtn = document.getElementById("authSubmit");
-                if (submitBtn) submitBtn.addEventListener("click", () => handleAuthSubmit(mode));
-
-                const switchEl = document.getElementById("authSwitch");
-                if (switchEl) switchEl.addEventListener("click", () => {
-                    const newMode = (mode === 'login') ? 'signup' : 'login';
-                    renderAuthForm(newMode);
-                });
-
-                const inputs = authBox.querySelectorAll("input");
-                inputs.forEach(input => {
-                    input.addEventListener("keydown", (e) => {
-                        if (e.key === "Enter") handleAuthSubmit(mode);
-                    });
-                });
-
+                document.getElementById("authSubmit").addEventListener("click", () => handleAuthSubmit(mode));
+                document.getElementById("authSwitch").addEventListener("click", () => renderAuthForm(mode === 'login' ? 'signup' : 'login'));
+                authBox.querySelectorAll("input").forEach(input => input.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAuthSubmit(mode); }));
                 if (message) showMessage(message, messageType);
             }
-
             async function handleAuthSubmit(mode) {
-                const emailEl = document.getElementById("authEmail");
-                const passwordEl = document.getElementById("authPassword");
+                const email = document.getElementById("authEmail").value.trim();
+                const password = document.getElementById("authPassword").value.trim();
                 const usernameEl = document.getElementById("authUsername");
-                const email = emailEl ? emailEl.value.trim() : '';
-                const password = passwordEl ? passwordEl.value.trim() : '';
                 const username = usernameEl ? usernameEl.value.trim() : '';
-
-                if ((mode === 'login' || mode === 'signup') && !email) {
-                    showMessage("⚠ Email required", "error");
-                    return;
-                }
-                if ((mode === 'login' || mode === 'signup') && !password) {
-                    showMessage("⚠ Password required", "error");
-                    return;
-                }
-                if (mode === 'signup' && (!username || username.length < 3)) {
-                    showMessage("⚠ Username must be at least 3 characters", "error");
-                    return;
-                }
-
-                let url, body;
-                if (mode === 'signup') {
-                    url = AUTH_URLS.signup;
-                    body = { username, email, password };
-                } else if (mode === 'login') {
-                    url = AUTH_URLS.login;
-                    body = { email, password };
-                }
-
+                if ((mode === 'login' || mode === 'signup') && !email) { showMessage("⚠ Email required", "error"); return; }
+                if ((mode === 'login' || mode === 'signup') && !password) { showMessage("⚠ Password required", "error"); return; }
+                if (mode === 'signup' && (!username || username.length < 3)) { showMessage("⚠ Username must be at least 3 characters", "error"); return; }
+                const url = mode === 'signup' ? AUTH_URLS.signup : AUTH_URLS.login;
+                const body = mode === 'signup' ? { username, email, password } : { email, password };
                 try {
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Request failed');
-
                     if (mode === 'signup') {
                         showMessage("✓ Account created. You can now login.", "success");
                         renderAuthForm('login');
-                    } else if (mode === 'login') {
+                    } else {
                         authToken = data.access_token;
                         currentUsername = data.username || "";
                         localStorage.setItem(TOKEN_KEY, authToken);
                         localStorage.setItem("current_username", currentUsername);
                         authScreen.style.display = 'none';
                         appContainer.style.display = 'flex';
-                        initChat();   // creates a fresh session with welcome message
+                        initChat();
                     }
-                } catch (err) {
-                    showMessage(`⚠ ${err.message}`, "error");
-                }
+                } catch (err) { showMessage(`⚠ ${err.message}`, "error"); }
             }
-
             function checkAuthOnLoad() {
-                if (authToken) {
-                    authScreen.style.display = 'none';
-                    appContainer.style.display = 'flex';
-                    initChat();
-                } else {
-                    renderAuthForm('login');
-                }
+                if (authToken) { authScreen.style.display = 'none'; appContainer.style.display = 'flex'; initChat(); }
+                else renderAuthForm('login');
             }
-
             logoutBtn.addEventListener("click", () => {
                 localStorage.removeItem(TOKEN_KEY);
                 localStorage.removeItem("current_username");
-                localStorage.removeItem(SESSIONS_META_KEY);
-                authToken = null;
-                currentUsername = "";
-                sessions = [];
-                currentSessionId = null;
-                welcomeVisible = false;
-                messagesArea.innerHTML = '';
-                sessionList.innerHTML = '';
-                authScreen.style.display = 'flex';
-                appContainer.style.display = 'none';
+                authToken = null; currentUsername = "";
+                sessions = []; currentSessionId = null; welcomeVisible = false;
+                messagesArea.innerHTML = ''; sessionList.innerHTML = '';
+                authScreen.style.display = 'flex'; appContainer.style.display = 'none';
                 renderAuthForm('login');
             });
 
-            // ─── CHAT INITIALIZATION (creates a new session with welcome) ──
-            function initChat() {
-                startNewSession();
+            // ─── CHAT INITIALIZATION (load sessions from server) ─────
+            async function initChat() {
+                await loadSessions();
                 userInput.focus();
             }
 
-            function startNewSession() {
-                // load existing session metadata for this user
-                const key = getSessionMetaKey();
-                const stored = localStorage.getItem(key);
-                if (stored) { try { sessions = JSON.parse(stored); } catch { sessions = []; } } else { sessions = []; }
-
-                // create a brand new session
-                const newId = generateId();
-                const newSession = { id: newId, title: "New Session", lastActive: Date.now() };
-                sessions.unshift(newSession);
-                saveSessionsMeta();
-                currentSessionId = newId;
-
-                // show welcome message
-                messagesArea.innerHTML = `
-                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;pointer-events:none;">
-                        <div style="font-size:1.8rem;color:var(--matrix-green);text-shadow:0 0 20px var(--matrix-green);letter-spacing:2px;">
-                            WELCOME BACK, ${currentUsername.toUpperCase()}
-                        </div>
-                        <div style="color:var(--text-secondary);margin-top:12px;font-size:0.9rem;">
-                            Type a message to begin
-                        </div>
-                    </div>
-                `;
-                welcomeVisible = true;
-                renderSessions();
-            }
-
-            // ─── SESSION MANAGEMENT (per-user, server-backed) ─────────
-            function getSessionMetaKey() {
-                return SESSIONS_META_KEY + "_" + (currentUsername || "user");
-            }
-
+            // ─── SESSION MANAGEMENT (server‑backed) ──────────────────
             async function loadSessions() {
-                // used when switching sessions from sidebar, not on login
-                const key = getSessionMetaKey();
-                const stored = localStorage.getItem(key);
-                if (stored) { try { sessions = JSON.parse(stored); } catch { sessions = []; } }
-                if (sessions.length === 0) {
-                    const defaultId = generateId();
-                    sessions = [{ id: defaultId, title: "General", lastActive: Date.now() }];
-                    saveSessionsMeta();
+                if (!authToken) return;
+                try {
+                    const res = await fetch(SESSIONS_URL, { headers: { 'Authorization': `Bearer ${authToken}` } });
+                    if (res.ok) {
+                        const data = await res.json();
+                        sessions = data.map(s => ({ id: s.id, title: s.title, lastActive: new Date(s.lastActive).getTime() }));
+                        if (sessions.length === 0) {
+                            await startNewSession(true);
+                        } else {
+                            currentSessionId = sessions[0].id;
+                            renderSessions();
+                            await loadChatHistoryFromServer(currentSessionId);
+                        }
+                    } else {
+                        // fallback: create new session
+                        await startNewSession(true);
+                    }
+                } catch {
+                    await startNewSession(true);
                 }
-                currentSessionId = sessions[0].id;
-                renderSessions();
-                await loadChatHistoryFromServer(currentSessionId);
             }
 
-            function saveSessionsMeta() {
-                const key = getSessionMetaKey();
-                localStorage.setItem(key, JSON.stringify(sessions));
+            async function startNewSession(makeCurrent = false) {
+                try {
+                    const res = await fetch(SESSIONS_URL, { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` } });
+                    if (res.ok) {
+                        const newSess = await res.json();
+                        sessions.unshift({ id: newSess.id, title: newSess.title, lastActive: Date.now() });
+                        if (makeCurrent) {
+                            currentSessionId = newSess.id;
+                            showWelcome();
+                            renderSessions();
+                        }
+                    }
+                } catch { }
             }
 
-            function generateId() { return 'sn_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36); }
+            function showWelcome() {
+                messagesArea.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;pointer-events:none;">
+                <div style="font-size:1.8rem;color:var(--matrix-green);text-shadow:0 0 20px var(--matrix-green);letter-spacing:2px;">
+                    WELCOME BACK, ${currentUsername.toUpperCase()}
+                </div>
+                <div style="color:var(--text-secondary);margin-top:12px;font-size:0.9rem;">Type a message to begin</div>
+            </div>`;
+                welcomeVisible = true;
+            }
 
             async function loadChatHistoryFromServer(sessionId) {
                 try {
-                    const res = await fetch(`${CHAT_URL}/${sessionId}`, {
-                        headers: { 'Authorization': `Bearer ${authToken}` }
-                    });
+                    const res = await fetch(`${CHAT_URL}/${sessionId}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
                     if (res.ok) {
                         const data = await res.json();
                         renderMessages(data.messages || []);
-                    } else {
-                        renderMessages([]);
-                    }
-                } catch {
-                    renderMessages([]);
-                }
+                    } else renderMessages([]);
+                } catch { renderMessages([]); }
             }
 
             function renderSessions() {
@@ -1614,20 +1533,13 @@
                     const item = document.createElement('div');
                     item.className = `session-item${s.id === currentSessionId ? ' active' : ''}`;
                     item.innerHTML = `
-                        <div>
-                            <div class="session-title">${escapeHtml(s.title || 'Untitled')}</div>
-                            <div class="session-time">${formatTime(s.lastActive)}</div>
-                        </div>
-                        <button class="delete-session" data-id="${s.id}">✕</button>
-                    `;
-                    item.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('delete-session')) return;
-                        switchSession(s.id);
-                    });
-                    item.querySelector('.delete-session').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteSession(s.id);
-                    });
+                <div>
+                    <div class="session-title">${escapeHtml(s.title || 'Untitled')}</div>
+                    <div class="session-time">${formatTime(s.lastActive)}</div>
+                </div>
+                <button class="delete-session" data-id="${s.id}">✕</button>`;
+                    item.addEventListener('click', (e) => { if (!e.target.classList.contains('delete-session')) switchSession(s.id); });
+                    item.querySelector('.delete-session').addEventListener('click', (e) => { e.stopPropagation(); deleteSession(s.id); });
                     sessionList.appendChild(item);
                 });
                 const active = sessions.find(s => s.id === currentSessionId);
@@ -1637,7 +1549,7 @@
             async function switchSession(sessionId) {
                 if (isWaiting) return;
                 currentSessionId = sessionId;
-                welcomeVisible = false;   // switching away from welcome
+                welcomeVisible = false;
                 await loadChatHistoryFromServer(sessionId);
                 renderSessions();
                 closeMobileSidebar();
@@ -1647,36 +1559,32 @@
             async function deleteSession(sessionId) {
                 if (sessions.length <= 1) return;
                 try {
-                    await fetch(`${CHAT_URL}/${sessionId}`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${authToken}` }
-                    });
-                } catch {}
+                    await fetch(`${SESSIONS_URL}/${sessionId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+                } catch { }
                 sessions = sessions.filter(s => s.id !== sessionId);
-                saveSessionsMeta();
                 if (currentSessionId === sessionId) {
-                    currentSessionId = sessions[0].id;
-                    switchSession(currentSessionId);
-                } else {
-                    renderSessions();
-                }
+                    currentSessionId = sessions[0]?.id;
+                    if (currentSessionId) switchSession(currentSessionId);
+                } else renderSessions();
             }
 
-            function newSession() {
+            async function newSession() {
                 if (isWaiting) return;
-                const newId = generateId();
-                const newSess = { id: newId, title: "New Session", lastActive: Date.now() };
-                sessions.unshift(newSess);
-                saveSessionsMeta();
-                currentSessionId = newId;
-                welcomeVisible = false;
-                renderMessages([]);
-                renderSessions();
+                await startNewSession(true);
                 closeMobileSidebar();
                 userInput.focus();
             }
 
-            // ─── MESSAGE RENDERING ──────────────────────────────────
+            async function updateSessionTitleOnServer(sessionId, title) {
+                try {
+                    await fetch(`${SESSIONS_URL}/${sessionId}?title=${encodeURIComponent(title)}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                } catch { }
+            }
+
+            // ─── MESSAGE RENDERING (unchanged) ───────────────────────
             function renderMessages(messages) {
                 messagesArea.innerHTML = '';
                 messages.forEach(msg => addMessageBubble(msg.role, msg.content, false));
@@ -1692,9 +1600,7 @@
                     bubble.innerHTML = `<div class="markdown-body">${marked.parse(content)}</div>`;
                     bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
                     addCopyButtons(bubble);
-                } else {
-                    bubble.textContent = content;
-                }
+                } else bubble.textContent = content;
                 messagesArea.appendChild(msgDiv);
                 if (scroll) scrollToBottom();
                 return { msgDiv, bubble };
@@ -1703,44 +1609,34 @@
                 container.querySelectorAll('pre').forEach(pre => {
                     if (pre.querySelector('.copy-code-btn')) return;
                     const btn = document.createElement('button');
-                    btn.className = 'copy-code-btn';
-                    btn.textContent = 'COPY';
+                    btn.className = 'copy-code-btn'; btn.textContent = 'COPY';
                     btn.addEventListener('click', () => {
                         const code = pre.querySelector('code');
-                        if (code) {
-                            navigator.clipboard.writeText(code.innerText).then(() => {
-                                btn.textContent = '✓';
-                                setTimeout(() => btn.textContent = 'COPY', 1200);
-                            });
-                        }
+                        if (code) navigator.clipboard.writeText(code.innerText).then(() => { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'COPY', 1200); });
                     });
                     pre.appendChild(btn);
                 });
             }
             function scrollToBottom() { messagesArea.scrollTop = messagesArea.scrollHeight; }
 
-            // ─── TYPING & MARKDOWN MORPH ─────────────────────────────
+            // ─── TYPING & MARKDOWN MORPH (unchanged) ────────────────
             function typeTextAndMorph(bubble, rawText, speed = 14) {
                 return new Promise(resolve => {
                     const rawDiv = document.createElement('div');
                     rawDiv.className = 'typing-raw';
                     bubble.innerHTML = '';
                     bubble.appendChild(rawDiv);
-
                     const cursor = document.createElement('span');
                     cursor.className = 'typing-cursor';
                     rawDiv.appendChild(document.createTextNode(''));
                     rawDiv.appendChild(cursor);
-
                     let i = 0;
                     const interval = setInterval(() => {
                         if (i < rawText.length) {
                             rawDiv.insertBefore(document.createTextNode(rawText.charAt(i)), cursor);
-                            i++;
-                            scrollToBottom();
+                            i++; scrollToBottom();
                         } else {
-                            clearInterval(interval);
-                            cursor.remove();
+                            clearInterval(interval); cursor.remove();
                             setTimeout(() => {
                                 const markdownHTML = marked.parse(rawText);
                                 bubble.innerHTML = `<div class="markdown-body">${markdownHTML}</div>`;
@@ -1753,19 +1649,14 @@
                     }, speed);
                 });
             }
-
             function showTypingIndicator() {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message assistant';
                 const bubble = document.createElement('div');
-                bubble.className = 'bubble';
-                bubble.style.padding = '14px 20px';
+                bubble.className = 'bubble'; bubble.style.padding = '14px 20px';
                 const dots = document.createElement('div');
                 dots.className = 'typing-dots';
-                for (let i = 0; i < 3; i++) {
-                    const dot = document.createElement('span');
-                    dots.appendChild(dot);
-                }
+                for (let i = 0; i < 3; i++) { const dot = document.createElement('span'); dots.appendChild(dot); }
                 bubble.appendChild(dots);
                 msgDiv.appendChild(bubble);
                 messagesArea.appendChild(msgDiv);
@@ -1774,7 +1665,7 @@
             }
             function removeTypingIndicator(el) { if (el && el.parentNode) el.remove(); }
 
-            // ─── FILE HANDLING ──────────────────────────────────────
+            // ─── FILE HANDLING (unchanged) ──────────────────────────
             function getFileIcon(file) {
                 const ext = file.name.split('.').pop().toLowerCase();
                 if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼';
@@ -1789,18 +1680,11 @@
                 attachedFiles.forEach((file, idx) => {
                     const chip = document.createElement('div');
                     chip.className = 'file-chip';
-                    const iconSpan = document.createElement('span');
-                    iconSpan.className = 'file-icon';
-                    iconSpan.textContent = getFileIcon(file);
-                    chip.appendChild(iconSpan);
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = file.name.length > 24 ? file.name.substring(0, 21) + '…' : file.name;
-                    chip.appendChild(nameSpan);
-                    const removeBtn = document.createElement('span');
-                    removeBtn.className = 'remove-file';
-                    removeBtn.textContent = '✕';
-                    removeBtn.onclick = () => { attachedFiles.splice(idx, 1); updateFilePreview(); };
-                    chip.appendChild(removeBtn);
+                    chip.innerHTML = `
+                <span class="file-icon">${getFileIcon(file)}</span>
+                <span>${file.name.length > 24 ? file.name.substring(0, 21) + '…' : file.name}</span>
+                <span class="remove-file">✕</span>`;
+                    chip.querySelector('.remove-file').onclick = () => { attachedFiles.splice(idx, 1); updateFilePreview(); };
                     filePreview.appendChild(chip);
                 });
             }
@@ -1808,18 +1692,13 @@
                 for (let f of files) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                        attachedFiles.push({
-                            name: f.name, type: f.type,
-                            data: ev.target.result.split(',')[1], blob: f
-                        });
+                        attachedFiles.push({ name: f.name, type: f.type, data: ev.target.result.split(',')[1], blob: f });
                         updateFilePreview();
                     };
                     reader.readAsDataURL(f);
                 }
             }
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) { addFiles(e.target.files); fileInput.value = ''; }
-            });
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) { addFiles(e.target.files); fileInput.value = ''; } });
             inputArea.addEventListener('dragover', (e) => { e.preventDefault(); dragOverlay.classList.add('active'); });
             inputArea.addEventListener('dragleave', (e) => { e.preventDefault(); dragOverlay.classList.remove('active'); });
             inputArea.addEventListener('drop', (e) => {
@@ -1827,76 +1706,47 @@
                 if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
             });
 
-            // ─── SEND MESSAGE (AUTH) ──────────────────────────────────
+            // ─── SEND MESSAGE (updated to use server sessions) ──────
             async function sendMessage() {
                 if (isWaiting) return;
-                if (!authToken) {
-                    alert("Please log in first.");
-                    return;
-                }
-
+                if (!authToken) { alert("Please log in first."); return; }
                 const text = userInput.value.trim();
                 if (!text && attachedFiles.length === 0) return;
-
-                // If welcome message is visible, clear it first
-                if (welcomeVisible) {
-                    messagesArea.innerHTML = '';
-                    welcomeVisible = false;
-                }
-
-                if (!currentSessionId) {
-                    startNewSession();
-                }
-
+                if (welcomeVisible) { messagesArea.innerHTML = ''; welcomeVisible = false; }
+                if (!currentSessionId) await startNewSession(true);
                 isWaiting = true;
                 userInput.disabled = true;
-
                 let userContent = text;
-                if (attachedFiles.length > 0) {
-                    userContent += '\n[Attached: ' + attachedFiles.map(f => f.name).join(', ') + ']';
-                }
+                if (attachedFiles.length > 0) userContent += '\n[Attached: ' + attachedFiles.map(f => f.name).join(', ') + ']';
                 addMessageBubble('user', userContent);
-
                 const sess = sessions.find(s => s.id === currentSessionId);
                 if (sess && (sess.title === 'New Session' || sess.title === 'General')) {
                     sess.title = text.substring(0, 30) || 'File upload';
                     sess.lastActive = Date.now();
-                    saveSessionsMeta();
+                    updateSessionTitleOnServer(sess.id, sess.title);
                     renderSessions();
                 } else if (sess) {
                     sess.lastActive = Date.now();
-                    saveSessionsMeta();
                     renderSessions();
                 }
-
                 userInput.value = '';
                 const typingIndicator = showTypingIndicator();
-
                 try {
                     const payload = {
                         session_id: currentSessionId,
                         message: text,
-                        files: attachedFiles.length > 0 ? attachedFiles.map(f => ({
-                            name: f.name, type: f.type, data: f.data
-                        })) : undefined
+                        files: attachedFiles.length > 0 ? attachedFiles.map(f => ({ name: f.name, type: f.type, data: f.data })) : undefined
                     };
                     const response = await fetch(CHAT_URL, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`
-                        },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                         body: JSON.stringify(payload)
                     });
                     if (!response.ok) {
                         if (response.status === 401) {
-                            localStorage.removeItem(TOKEN_KEY);
-                            localStorage.removeItem("current_username");
-                            localStorage.removeItem(getSessionMetaKey());
-                            authToken = null;
-                            currentUsername = "";
-                            authScreen.style.display = 'flex';
-                            appContainer.style.display = 'none';
+                            localStorage.removeItem(TOKEN_KEY); localStorage.removeItem("current_username");
+                            authToken = null; currentUsername = "";
+                            authScreen.style.display = 'flex'; appContainer.style.display = 'none';
                             renderAuthForm('login', '⚠ Session expired. Please login again.', 'error');
                             return;
                         }
@@ -1905,11 +1755,9 @@
                     }
                     const data = await response.json();
                     const reply = data.reply;
-
                     removeTypingIndicator(typingIndicator);
                     const { bubble } = addMessageBubble('assistant', '', false);
                     await typeTextAndMorph(bubble, reply);
-
                     attachedFiles = [];
                     updateFilePreview();
                 } catch (error) {
@@ -1925,37 +1773,24 @@
 
             // ─── EVENT LISTENERS ────────────────────────────────────
             sendBtn.addEventListener('click', sendMessage);
-            userInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-            });
+            userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
             newChatBtn.addEventListener('click', newSession);
             menuToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('show');
-                menuToggle.classList.toggle('active');
+                sidebar.classList.toggle('open'); overlay.classList.toggle('show'); menuToggle.classList.toggle('active');
             });
             overlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-                menuToggle.classList.remove('active');
+                sidebar.classList.remove('open'); overlay.classList.remove('show'); menuToggle.classList.remove('active');
             });
-            function closeMobileSidebar() {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('show');
-                menuToggle.classList.remove('active');
-            }
+            function closeMobileSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('show'); menuToggle.classList.remove('active'); }
 
             // ─── UTILS ──────────────────────────────────────────────
             function escapeHtml(text) {
                 return String(text).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]);
             }
-            function formatTime(timestamp) {
-                return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
+            function formatTime(timestamp) { return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
             // ─── INIT ────────────────────────────────────────────────
             checkAuthOnLoad();
-
         })();
     </script>
 </body>

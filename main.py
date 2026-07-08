@@ -89,7 +89,13 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hashlib.sha256((password + salt).encode()).hexdigest() == hashed
 
 def create_token(user_id: str) -> str:
-    """Create a simple token for the user."""
+    # Remove any existing tokens for this user
+    supabase.table("user_tokens") \
+            .delete() \
+            .eq("user_id", user_id) \
+            .execute()
+
+    # Create a fresh token
     token = secrets.token_hex(32)
     expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
     supabase.table("user_tokens").insert({
@@ -352,6 +358,63 @@ async def clear_history(session_id: str, user_id: str = Depends(get_current_user
             .eq("session_id", session_id) \
             .execute()
     return {"message": "History cleared"}
+
+# ── Pydantic model for session response ──
+class SessionInfo(BaseModel):
+    id: str
+    title: str
+    lastActive: str
+
+@app.get("/sessions", response_model=List[SessionInfo])
+async def get_sessions(user_id: str = Depends(get_current_user)):
+    res = supabase.table("user_sessions") \
+                  .select("id, title, updated_at") \
+                  .eq("user_id", user_id) \
+                  .order("updated_at", desc=True) \
+                  .execute()
+    sessions = []
+    for row in res.data:
+        sessions.append(SessionInfo(
+            id=row["id"],
+            title=row["title"],
+            lastActive=row["updated_at"]
+        ))
+    return sessions
+
+@app.post("/sessions")
+async def create_session(user_id: str = Depends(get_current_user)):
+    new_id = str(uuid.uuid4())
+    supabase.table("user_sessions").insert({
+        "id": new_id,
+        "user_id": user_id,
+        "title": "New Session",
+        "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }).execute()
+    return {"id": new_id, "title": "New Session", "lastActive": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+
+@app.put("/sessions/{session_id}")
+async def update_session_title(session_id: str, title: str, user_id: str = Depends(get_current_user)):
+    supabase.table("user_sessions") \
+            .update({"title": title, "updated_at": "now()"}) \
+            .eq("id", session_id) \
+            .eq("user_id", user_id) \
+            .execute()
+    return {"message": "updated"}
+
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, user_id: str = Depends(get_current_user)):
+    # Also delete the conversation
+    supabase.table("conversations") \
+            .delete() \
+            .eq("user_id", user_id) \
+            .eq("session_id", session_id) \
+            .execute()
+    supabase.table("user_sessions") \
+            .delete() \
+            .eq("id", session_id) \
+            .eq("user_id", user_id) \
+            .execute()
+    return {"message": "deleted"}
 
 # -------------------------------------------------------------------
 # Frontend

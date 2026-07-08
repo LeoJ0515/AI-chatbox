@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL DEFAULT 'New Session',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (user_id, id)
+);
+
 -- Update conversations to reference users table
 ALTER TABLE conversations 
 DROP CONSTRAINT IF EXISTS conversations_user_id_fkey;
